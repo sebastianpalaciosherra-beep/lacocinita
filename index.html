@@ -43,11 +43,13 @@
         }
     </style>
     
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1830/1830839.png">
-    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/1830/1830839.png">
+   <link rel="apple-touch-icon" href="./icono.png">
+    <link rel="icon" href="./icono.png">
     <meta name="theme-color" content="#27ae60">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="manifest" href="./manifest.json">
 </head>
 <body>
 
@@ -160,36 +162,29 @@
         document.getElementById('btn-guardar').style.display = 'none';
     }
 
-    // === NUEVA FUNCIÓN PARA GENERAR Y DESCARGAR EL PDF ===
     function descargarPDF() {
-        // 1. Ocultamos temporalmente todo lo que no queremos en el PDF (inputs y botones)
         const elementosAocultar = document.querySelectorAll('label, input, button');
         elementosAocultar.forEach(el => el.style.display = 'none');
 
-        // Quitamos la sombra de la caja para que el PDF se vea plano y limpio
         const contenedor = document.getElementById('contenedor-principal');
         contenedor.style.boxShadow = 'none';
 
         const fecha = document.getElementById('fechaCorte').value;
 
-        // 2. Configuramos cómo queremos que salga el PDF
         const opcionesPDF = {
             margin:       0.5,
             filename:     'Corte_LaCocinita_' + fecha + '.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 }, // Hace que la calidad de texto y gráfica sea excelente
+            html2canvas:  { scale: 2 }, 
             jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
         };
 
-        // 3. Generamos el PDF
         html2pdf().set(opcionesPDF).from(contenedor).save().then(() => {
-            // 4. Restauramos la pantalla a la normalidad después de descargar
-            elementosAocultar.forEach(el => el.style.display = 'block'); // Vuelve a mostrar inputs
+            elementosAocultar.forEach(el => el.style.display = 'block'); 
             document.querySelector('.btn-calcular').style.display = 'block';
             document.getElementById('btn-imprimir').style.display = 'block';
             document.querySelector('.btn-peligro').style.display = 'block';
             
-            // Si el botón de guardar oficial seguía visible, lo dejamos visible
             if (document.getElementById('panel-resultados').style.display === 'block' && 
                 document.getElementById('btn-guardar').style.display !== 'none') {
                 document.getElementById('btn-guardar').style.display = 'block';
@@ -249,5 +244,14 @@
         });
     }
 </script>
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js');
+        });
+    }
+</script>
+
 </body>
 </html>
