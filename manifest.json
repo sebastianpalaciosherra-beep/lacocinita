@@ -1,0 +1,15 @@
+{
+  "name": "Control de Caja - La Cocinita",
+  "short_name": "La Cocinita",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f7f6",
+  "theme_color": "#27ae60",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1830/1830839.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
