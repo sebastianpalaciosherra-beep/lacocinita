@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corte de Caja - La Cocinita</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 600px; width: 100%; }
+        h1 { text-align: center; color: #2c3e50; font-size: 24px; margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-top: 15px; color: #444; }
+        input { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; outline: none; }
+        input:focus { border-color: #27ae60; }
+        
+        button { width: 100%; padding: 15px; margin-top: 20px; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        .btn-calcular { background-color: #3498db; color: white; } 
+        .btn-calcular:hover { background-color: #2980b9; }
+        
+        .btn-guardar { background-color: #27ae60; color: white; display: none; margin-top: 10px; } 
+        .btn-guardar:hover { background-color: #219150; }
+        
+        .btn-imprimir { background-color: #34495e; color: white; margin-top: 10px; display: none; }
+        
+        .btn-peligro { background-color: transparent; color: #e74c3c; border: 1px solid #e74c3c; font-size: 14px; padding: 10px; margin-top: 40px; }
+        .btn-peligro:hover { background-color: #fdedec; }
+
+        .resultados { margin-top: 25px; padding: 20px; background-color: #e8f8f5; border-left: 6px solid #27ae60; border-radius: 8px; display: none; }
+        .rojo { background-color: #fdedec; border-left-color: #e74c3c; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 5px; }
+        .grafica-container { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
+        
+        @media print {
+            body { background-color: white; padding: 0; }
+            label, input, button { display: none !important; }
+            .container { box-shadow: none; max-width: 100%; padding: 0; }
+            .resultados { display: block !important; border: 2px dashed #333; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏪 Control de Caja: La Cocinita</h1>
+    
+    <label>Fecha del Corte:</label>
+    <input type="date" id="fechaCorte">
+
+    <label>1. Fondo de Caja inicial (Morralla):</label>
+    <input type="number" id="fondo" placeholder="Ej. 500">
+
+    <label>2. Efectivo TOTAL contado en caja:</label>
+    <input type="number" id="efectivoTotal" placeholder="Ej. 2500">
+
+    <label>3. Costo de Ventas (Insumos):</label>
+    <input type="number" id="costos" placeholder="Ej. 800">
+
+    <label>4. Valor estimado de la Merma (Sobrante):</label>
+    <input type="number" id="merma" placeholder="Ej. 150">
+
+    <label>5. Gastos Operativos (Fijos):</label>
+    <input type="number" id="gastos" placeholder="Ej. 100">
+
+    <button class="btn-calcular" onclick="calcular()">1. Calcular (Modo Prueba)</button>
+    <button id="btn-guardar" class="btn-guardar" onclick="guardarOficial()">2. 💾 Confirmar y Guardar Oficial</button>
+    <button id="btn-imprimir" class="btn-imprimir" onclick="window.print()">🖨️ Guardar PDF / Imprimir</button>
+
+    <div id="panel-resultados" class="resultados">
+        <h2 id="res-fecha-titulo" style="text-align: center; color: #2c3e50; margin-top: 0;"></h2>
+        <div class="info-row"><span>Ingresos Reales:</span><strong>$<span id="res-ingresos"></span></strong></div>
+        <div class="info-row"><span>Utilidad Bruta:</span><strong>$<span id="res-bruta"></span></strong></div>
+        <div class="info-row" style="border:none;"><span>Utilidad Neta:</span><strong style="font-size: 1.3em;">$<span id="res-neta"></span></strong></div>
+        <p id="estatus-mensaje" style="text-align: center; font-weight: bold; margin-top: 15px;"></p>
+    </div>
+
+    <div class="grafica-container">
+        <canvas id="graficaVentas"></canvas>
+    </div>
+
+    <button class="btn-peligro" onclick="borrarTodo()">⚠️ Borrar todo el historial de la gráfica</button>
+</div>
+
+<script>
+    let miGrafica; 
+    let utilidadCalculadaTemporal = 0; 
+
+    window.onload = function() {
+        const hoy = new Date().toISOString().split('T')[0];
+        document.getElementById('fechaCorte').value = hoy;
+        actualizarGrafica();
+    }
+
+    function calcular() {
+        const fecha = document.getElementById('fechaCorte').value;
+        const fondo = parseFloat(document.getElementById('fondo').value) || 0;
+        const efectivoTotal = parseFloat(document.getElementById('efectivoTotal').value) || 0;
+        const costos = parseFloat(document.getElementById('costos').value) || 0;
+        const gastos = parseFloat(document.getElementById('gastos').value) || 0;
+
+        const ingresosReales = efectivoTotal - fondo;
+        const utilidadBruta = ingresosReales - costos;
+        const utilidadNeta = utilidadBruta - gastos;
+
+        utilidadCalculadaTemporal = utilidadNeta;
+
+        const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const fechaFormateada = new Date(fecha + "T00:00:00").toLocaleDateString('es-MX', opciones);
+        
+        document.getElementById('res-fecha-titulo').innerText = "Corte: " + fechaFormateada;
+        document.getElementById('res-ingresos').innerText = ingresosReales.toFixed(2);
+        document.getElementById('res-bruta').innerText = utilidadBruta.toFixed(2);
+        document.getElementById('res-neta').innerText = utilidadNeta.toFixed(2);
+
+        document.getElementById('panel-resultados').style.display = 'block';
+        document.getElementById('btn-guardar').style.display = 'block';
+        document.getElementById('btn-imprimir').style.display = 'block';
+
+        const mensaje = document.getElementById('estatus-mensaje');
+        if (utilidadNeta > 0) {
+            document.getElementById('panel-resultados').className = 'resultados';
+            mensaje.innerText = "✅ Cálculo listo. Puedes guardarlo o ajustar números.";
+            mensaje.style.color = "#27ae60";
+        } else {
+            document.getElementById('panel-resultados').className = 'resultados rojo';
+            mensaje.innerText = "⚠️ Cálculo listo (Pérdida). Puedes guardarlo o ajustar números.";
+            mensaje.style.color = "#e74c3c";
+        }
+    }
+
+    function guardarOficial() {
+        const fecha = document.getElementById('fechaCorte').value;
+        let historial = JSON.parse(localStorage.getItem('historialCocinita')) || [];
+        
+        const index = historial.findIndex(item => item.fecha === fecha);
+        if (index > -1) {
+            historial[index].utilidad = utilidadCalculadaTemporal;
+        } else {
+            historial.push({ fecha: fecha, utilidad: utilidadCalculadaTemporal });
+        }
+
+        historial.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        if (historial.length > 7) historial = historial.slice(historial.length - 7);
+
+        localStorage.setItem('historialCocinita', JSON.stringify(historial));
+        actualizarGrafica();
+        
+        alert("¡Éxito! El corte de hoy ha sido guardado oficialmente en la gráfica.");
+        document.getElementById('btn-guardar').style.display = 'none';
+    }
+
+    function borrarTodo() {
+        const pinCorrecto = "1234"; // <-- CAMBIA EL "1234" POR LA CONTRASEÑA QUE QUIERAS EN CASA
+        
+        const pinIngresado = prompt("🔒 ACCESO RESTRINGIDO\nIngresa el PIN de seguridad para borrar el historial:");
+
+        if (pinIngresado === pinCorrecto) {
+            if(confirm("PIN Aceptado. ¿Estás COMPLETAMENTE SEGURO de querer borrar toda la gráfica? Esto no se puede deshacer.")) {
+                localStorage.removeItem('historialCocinita');
+                actualizarGrafica();
+                alert("🗑️ Historial borrado exitosamente. El sistema está limpio.");
+            }
+        } 
+        else if (pinIngresado !== null) {
+            alert("❌ PIN incorrecto. Acceso denegado.");
+        }
+    }
+
+    function actualizarGrafica() {
+        let historial = JSON.parse(localStorage.getItem('historialCocinita')) || [];
+        
+        const etiquetas = historial.map(item => item.fecha);
+        const datos = historial.map(item => item.utilidad);
+        const colores = datos.map(valor => valor >= 0 ? '#27ae60' : '#e74c3c');
+
+        const ctx = document.getElementById('graficaVentas').getContext('2d');
+        if (miGrafica) { miGrafica.destroy(); }
+
+        miGrafica = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: etiquetas,
+                datasets: [{
+                    label: 'Utilidad Neta Libre ($)',
+                    data: datos,
+                    backgroundColor: colores,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Rendimiento de los Últimos 7 Días' }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
