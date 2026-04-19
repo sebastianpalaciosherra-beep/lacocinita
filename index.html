@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Corte de Caja - La Cocinita</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; display: flex; justify-content: center; padding: 20px; }
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 600px; width: 100%; }
@@ -20,7 +23,8 @@
         .btn-guardar { background-color: #27ae60; color: white; display: none; margin-top: 10px; } 
         .btn-guardar:hover { background-color: #219150; }
         
-        .btn-imprimir { background-color: #34495e; color: white; margin-top: 10px; display: none; }
+        .btn-imprimir { background-color: #9b59b6; color: white; margin-top: 10px; display: none; }
+        .btn-imprimir:hover { background-color: #8e44ad; }
         
         .btn-peligro { background-color: transparent; color: #e74c3c; border: 1px solid #e74c3c; font-size: 14px; padding: 10px; margin-top: 40px; }
         .btn-peligro:hover { background-color: #fdedec; }
@@ -30,6 +34,7 @@
         .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 5px; }
         .grafica-container { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
         
+        /* Mantenemos el estilo de impresión por si acaso, aunque ya no se usa la ventana nativa */
         @media print {
             body { background-color: white; padding: 0; }
             label, input, button { display: none !important; }
@@ -37,25 +42,25 @@
             .resultados { display: block !important; border: 2px dashed #333; }
         }
     </style>
+    
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1830/1830839.png">
-<link rel="icon" href="https://cdn-icons-png.flaticon.com/512/1830/1830839.png">
-
-<meta name="theme-color" content="#27ae60">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/1830/1830839.png">
+    <meta name="theme-color" content="#27ae60">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
-<div class="container">
+<div class="container" id="contenedor-principal">
     <h1>🏪 Control de Caja: La Cocinita</h1>
     
     <label>Fecha del Corte:</label>
     <input type="date" id="fechaCorte">
 
-    <label>1. Fondo de Caja inicial (Morralla):</label>
+    <label>1. Fondo de Caja inicial (Dinero base en la mañana):</label>
     <input type="number" id="fondo" placeholder="Ej. 500">
 
-    <label>2. Efectivo TOTAL contado en caja:</label>
+    <label>2. Efectivo total contado en caja:</label>
     <input type="number" id="efectivoTotal" placeholder="Ej. 2500">
 
     <label>3. Costo de Ventas (Insumos):</label>
@@ -69,7 +74,8 @@
 
     <button class="btn-calcular" onclick="calcular()">1. Calcular (Modo Prueba)</button>
     <button id="btn-guardar" class="btn-guardar" onclick="guardarOficial()">2. 💾 Confirmar y Guardar Oficial</button>
-    <button id="btn-imprimir" class="btn-imprimir" onclick="window.print()">🖨️ Guardar PDF / Imprimir</button>
+    
+    <button id="btn-imprimir" class="btn-imprimir" onclick="descargarPDF()">📄 Descargar Reporte en PDF</button>
 
     <div id="panel-resultados" class="resultados">
         <h2 id="res-fecha-titulo" style="text-align: center; color: #2c3e50; margin-top: 0;"></h2>
@@ -154,8 +160,49 @@
         document.getElementById('btn-guardar').style.display = 'none';
     }
 
+    // === NUEVA FUNCIÓN PARA GENERAR Y DESCARGAR EL PDF ===
+    function descargarPDF() {
+        // 1. Ocultamos temporalmente todo lo que no queremos en el PDF (inputs y botones)
+        const elementosAocultar = document.querySelectorAll('label, input, button');
+        elementosAocultar.forEach(el => el.style.display = 'none');
+
+        // Quitamos la sombra de la caja para que el PDF se vea plano y limpio
+        const contenedor = document.getElementById('contenedor-principal');
+        contenedor.style.boxShadow = 'none';
+
+        const fecha = document.getElementById('fechaCorte').value;
+
+        // 2. Configuramos cómo queremos que salga el PDF
+        const opcionesPDF = {
+            margin:       0.5,
+            filename:     'Corte_LaCocinita_' + fecha + '.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 }, // Hace que la calidad de texto y gráfica sea excelente
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        // 3. Generamos el PDF
+        html2pdf().set(opcionesPDF).from(contenedor).save().then(() => {
+            // 4. Restauramos la pantalla a la normalidad después de descargar
+            elementosAocultar.forEach(el => el.style.display = 'block'); // Vuelve a mostrar inputs
+            document.querySelector('.btn-calcular').style.display = 'block';
+            document.getElementById('btn-imprimir').style.display = 'block';
+            document.querySelector('.btn-peligro').style.display = 'block';
+            
+            // Si el botón de guardar oficial seguía visible, lo dejamos visible
+            if (document.getElementById('panel-resultados').style.display === 'block' && 
+                document.getElementById('btn-guardar').style.display !== 'none') {
+                document.getElementById('btn-guardar').style.display = 'block';
+            } else {
+                document.getElementById('btn-guardar').style.display = 'none';
+            }
+
+            contenedor.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        });
+    }
+
     function borrarTodo() {
-        const pinCorrecto = "040617"; // <-- CAMBIA EL "1234" POR LA CONTRASEÑA QUE QUIERAS EN CASA
+        const pinCorrecto = "040617"; 
         
         const pinIngresado = prompt("🔒 ACCESO RESTRINGIDO\nIngresa el PIN de seguridad para borrar el historial:");
 
